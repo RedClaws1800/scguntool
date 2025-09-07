@@ -92,7 +92,7 @@ img.gun-img { max-width: 250px; max-height: 250px; border-radius: 8px; margin-bo
 let guns = [], barrels = [], underBarrels = [], scopes = [];
 let selectedGunIndex = null;
 
-// Cookie helpers
+// --- Cookie helpers ---
 function saveToCookies() {
   const data = { guns, barrels, underBarrels, scopes, selectedGunIndex };
   document.cookie = "gunData=" + encodeURIComponent(JSON.stringify(data)) + ";path=/;max-age=31536000";
@@ -114,12 +114,39 @@ function loadFromCookies() {
   }
 }
 
+// --- Rendering functions ---
+function makeDraggableList(listEl, array) {
+  let draggedIndex = null;
+
+  listEl.addEventListener('dragstart', e => {
+    draggedIndex = [...listEl.children].indexOf(e.target);
+    e.dataTransfer.effectAllowed = 'move';
+  });
+
+  listEl.addEventListener('dragover', e => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  });
+
+  listEl.addEventListener('drop', e => {
+    e.preventDefault();
+    const targetIndex = [...listEl.children].indexOf(e.target.closest('.gun-item, .attachment-item'));
+    if (draggedIndex === null || targetIndex === -1) return;
+    const [moved] = array.splice(draggedIndex, 1);
+    array.splice(targetIndex, 0, moved);
+    renderGuns();
+    renderAttachments();
+    draggedIndex = null;
+  });
+}
+
 function renderGuns() {
   const list = document.getElementById('gunsList');
   list.innerHTML = '';
   guns.forEach((gun, index) => {
     const div = document.createElement('div');
     div.className = 'gun-item';
+    div.setAttribute('draggable','true');
     div.innerHTML = `
       <span style="display:flex; align-items:center; cursor:pointer;">
         ${gun.image ? `<img class="gun-img" src="${gun.image}" alt="gun" style="width:30px;height:30px;margin-right:5px;">` : ''}
@@ -132,6 +159,7 @@ function renderGuns() {
     `;
     list.appendChild(div);
   });
+  makeDraggableList(list, guns);
   saveToCookies();
 }
 
@@ -142,6 +170,7 @@ function renderAttachments() {
     items.forEach((item, i) => {
       const div = document.createElement('div');
       div.className = 'attachment-item';
+      div.setAttribute('draggable','true');
       div.innerHTML = `
         ${item.name} (Size ${item.size})
         <div>
@@ -151,6 +180,7 @@ function renderAttachments() {
       `;
       list.appendChild(div);
     });
+    makeDraggableList(list, items);
   }
   renderList(barrels, 'barrelList', 'barrel');
   renderList(underBarrels, 'underList', 'under');
@@ -179,19 +209,15 @@ function renderSelectedGun() {
   saveToCookies();
 }
 
+// --- Gun & Attachment CRUD ---
 function addGun() {
   const name = document.getElementById('gunName').value.trim();
   const barrel = parseInt(document.getElementById('gunBarrel').value);
   const under = parseInt(document.getElementById('gunUnder').value);
   const scope = parseInt(document.getElementById('gunScope').value);
   const image = document.getElementById('gunImage').value;
-
   if (!name || !barrel || !under || !scope) return alert("All fields except image required");
-
-  if (guns.some(g => g.name.toLowerCase() === name.toLowerCase())) {
-    return alert("A gun with that name already exists!");
-  }
-
+  if (guns.some(g => g.name.toLowerCase() === name.toLowerCase())) return alert("A gun with that name already exists!");
   guns.push({ name, barrelSize: barrel, underSize: under, scopeSize: scope, barrel: null, under: null, scope: null, image });
   renderGuns();
 }
@@ -204,12 +230,8 @@ function addAttachment(type) {
   const name = document.getElementById(`${type}Name`).value.trim();
   const size = parseInt(document.getElementById(`${type}Size`).value);
   if (!name || !size) return alert("All fields required");
-
-  let arr = type === 'barrel' ? barrels : type === 'under' ? underBarrels : scopes;
-  if (arr.some(a => a.name.toLowerCase() === name.toLowerCase())) {
-    return alert(`An attachment of type ${type} with that name already exists!`);
-  }
-
+  let arr = type==='barrel'?barrels:type==='under'?underBarrels:scopes;
+  if (arr.some(a => a.name.toLowerCase()===name.toLowerCase())) return alert(`An attachment of type ${type} with that name already exists!`);
   arr.push({ name, size });
   renderAttachments();
 }
@@ -225,7 +247,7 @@ function attachToGun(type,index){
   gun[type]=attachment; renderSelectedGun();
 }
 
-// Export / Import
+// --- Export / Import ---
 function exportData(){ const data={guns,barrels,underBarrels,scopes}; const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='guns_attachments.json'; a.click(); URL.revokeObjectURL(url);}
 function importData(event){
   const file=event.target.files[0]; if(!file) return;
@@ -240,7 +262,7 @@ function importData(event){
   reader.readAsText(file);
 }
 
-// Load from cookies initially
+// --- Initialize ---
 loadFromCookies();
 renderGuns(); renderAttachments(); renderSelectedGun();
 </script>
