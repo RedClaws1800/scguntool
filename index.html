@@ -37,7 +37,7 @@ img.gun-img { max-width: 250px; max-height: 250px; border-radius: 8px; margin-bo
 
 /* Scrollable attachment lists */
 .attachment-scroll {
-  max-height: 150px; /* adjust height as needed */
+  max-height: 150px;
   overflow-y: auto;
   border: 1px solid #555;
   padding: 5px;
@@ -74,7 +74,10 @@ img.gun-img { max-width: 250px; max-height: 250px; border-radius: 8px; margin-bo
     <p>Under Barrel: None</p>
     <p>Scope: None</p>
   </div>
-  <button onclick="removeSelectedGun()">Remove Gun</button>
+  <div>
+    <button onclick="removeSelectedGun()">Delete Gun</button>
+    <button onclick="deselectGun()">Deselect Gun</button>
+  </div>
 </div>
 
 <div class="panel attachments-panel">
@@ -100,7 +103,6 @@ img.gun-img { max-width: 250px; max-height: 250px; border-radius: 8px; margin-bo
 </div>
 
 <script>
-// --- JS remains unchanged ---
 let guns = [], barrels = [], underBarrels = [], scopes = [];
 let selectedGunIndex = null;
 
@@ -127,17 +129,14 @@ function loadFromCookies() {
 
 function makeDraggableList(listEl, array) {
   let draggedIndex = null;
-
   listEl.addEventListener('dragstart', e => {
     draggedIndex = [...listEl.children].indexOf(e.target);
     e.dataTransfer.effectAllowed = 'move';
   });
-
   listEl.addEventListener('dragover', e => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
   });
-
   listEl.addEventListener('drop', e => {
     e.preventDefault();
     const targetIndex = [...listEl.children].indexOf(e.target.closest('.gun-item, .attachment-item'));
@@ -220,39 +219,74 @@ function renderSelectedGun() {
 }
 
 function addGun() {
-  const name = document.getElementById('gunName').value.trim();
-  const barrel = parseInt(document.getElementById('gunBarrel').value);
-  const under = parseInt(document.getElementById('gunUnder').value);
-  const scope = parseInt(document.getElementById('gunScope').value);
-  const image = document.getElementById('gunImage').value;
+  const nameEl = document.getElementById('gunName');
+  const barrelEl = document.getElementById('gunBarrel');
+  const underEl = document.getElementById('gunUnder');
+  const scopeEl = document.getElementById('gunScope');
+  const imageEl = document.getElementById('gunImage');
+
+  const name = nameEl.value.trim();
+  const barrel = parseInt(barrelEl.value);
+  const under = parseInt(underEl.value);
+  const scope = parseInt(scopeEl.value);
+  const image = imageEl.value;
   if (!name || !barrel || !under || !scope) return alert("All fields except image required");
   if (guns.some(g => g.name.toLowerCase() === name.toLowerCase())) return alert("A gun with that name already exists!");
   guns.push({ name, barrelSize: barrel, underSize: under, scopeSize: scope, barrel: null, under: null, scope: null, image });
   renderGuns();
+
+  // clear fields
+  nameEl.value = ''; barrelEl.value = ''; underEl.value = ''; scopeEl.value = ''; imageEl.value = '';
 }
 
 function selectGun(index) { selectedGunIndex = index; renderSelectedGun(); }
 function deleteGun(index){ if(selectedGunIndex===index) selectedGunIndex=null; guns.splice(index,1); renderGuns(); renderSelectedGun(); }
 function removeSelectedGun(){ if(selectedGunIndex!==null){ guns.splice(selectedGunIndex,1); selectedGunIndex=null; renderGuns(); renderSelectedGun(); } }
+function deselectGun(){ selectedGunIndex = null; renderSelectedGun(); }
 
 function addAttachment(type) {
-  const name = document.getElementById(`${type}Name`).value.trim();
-  const size = parseInt(document.getElementById(`${type}Size`).value);
+  const nameEl = document.getElementById(`${type}Name`);
+  const sizeEl = document.getElementById(`${type}Size`);
+  const name = nameEl.value.trim();
+  const size = parseInt(sizeEl.value);
   if (!name || !size) return alert("All fields required");
   let arr = type==='barrel'?barrels:type==='under'?underBarrels:scopes;
   if (arr.some(a => a.name.toLowerCase()===name.toLowerCase())) return alert(`An attachment of type ${type} with that name already exists!`);
   arr.push({ name, size });
   renderAttachments();
+
+  // clear fields
+  nameEl.value = ''; sizeEl.value = '';
 }
 
-function deleteAttachment(type,index){ if(type==='barrel') barrels.splice(index,1); if(type==='under') underBarrels.splice(index,1); if(type==='scope') scopes.splice(index,1); renderAttachments(); }
+function deleteAttachment(type,index){
+  let arr;
+  if(type==='barrel') arr = barrels;
+  if(type==='under') arr = underBarrels;
+  if(type==='scope') arr = scopes;
+
+  const removed = arr[index];
+  arr.splice(index,1);
+
+  // also remove from currently selected gun if in use
+  if(selectedGunIndex!==null){
+    const gun = guns[selectedGunIndex];
+    if(gun[type] && gun[type].name === removed.name){
+      gun[type] = null;
+    }
+  }
+
+  renderAttachments();
+  renderSelectedGun();
+}
+
 function removeAttachment(type){ if(selectedGunIndex===null) return; guns[selectedGunIndex][type]=null; renderSelectedGun(); }
 function attachToGun(type,index){
   if(selectedGunIndex===null) return alert("Select a gun first");
   const gun=guns[selectedGunIndex];
   let attachment = type==='barrel'?barrels[index]:type==='under'?underBarrels[index]:scopes[index];
   const requiredSize = type==='barrel'?gun.barrelSize:type==='under'?gun.underSize:gun.scopeSize;
-  if(attachment.size!==requiredSize) return alert(`Size mismatch! Gun requires size ${requiredSize}.`);
+  if(attachment.size > requiredSize) return alert(`Size mismatch! Gun requires size ${requiredSize} or smaller. This attachment is size ${attachment.size}.`);
   gun[type]=attachment; renderSelectedGun();
 }
 
