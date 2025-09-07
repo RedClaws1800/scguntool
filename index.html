@@ -34,6 +34,17 @@ input[type="number"] { width: 50px; }
 img.gun-img { max-width: 250px; max-height: 250px; border-radius: 8px; margin-bottom: 10px; }
 .selected-gun-name { font-size: 24px; margin-bottom: 20px; }
 .attachments-list p { margin: 5px 0; }
+
+/* Scrollable attachment lists */
+.attachment-scroll {
+  max-height: 150px; /* adjust height as needed */
+  overflow-y: auto;
+  border: 1px solid #555;
+  padding: 5px;
+  margin-bottom: 10px;
+  background-color: #2c2c2c;
+  border-radius: 4px;
+}
 </style>
 </head>
 <body>
@@ -70,29 +81,29 @@ img.gun-img { max-width: 250px; max-height: 250px; border-radius: 8px; margin-bo
   <h2>Attachments</h2>
   
   <h3>Barrels</h3>
-  <div id="barrelList"></div>
+  <div id="barrelList" class="attachment-scroll"></div>
   <input type="text" id="barrelName" placeholder="Barrel Name">
   <input type="number" id="barrelSize" min="1" max="3">
   <button onclick="addAttachment('barrel')">Add Barrel</button>
   
   <h3>Under Barrels</h3>
-  <div id="underList"></div>
+  <div id="underList" class="attachment-scroll"></div>
   <input type="text" id="underName" placeholder="Under Barrel Name">
   <input type="number" id="underSize" min="1" max="3">
   <button onclick="addAttachment('under')">Add Under Barrel</button>
   
   <h3>Scopes</h3>
-  <div id="scopeList"></div>
+  <div id="scopeList" class="attachment-scroll"></div>
   <input type="text" id="scopeName" placeholder="Scope Name">
   <input type="number" id="scopeSize" min="1" max="3">
   <button onclick="addAttachment('scope')">Add Scope</button>
 </div>
 
 <script>
+// --- JS remains unchanged ---
 let guns = [], barrels = [], underBarrels = [], scopes = [];
 let selectedGunIndex = null;
 
-// --- Cookie helpers ---
 function saveToCookies() {
   const data = { guns, barrels, underBarrels, scopes, selectedGunIndex };
   document.cookie = "gunData=" + encodeURIComponent(JSON.stringify(data)) + ";path=/;max-age=31536000";
@@ -114,7 +125,6 @@ function loadFromCookies() {
   }
 }
 
-// --- Rendering functions ---
 function makeDraggableList(listEl, array) {
   let draggedIndex = null;
 
@@ -209,7 +219,6 @@ function renderSelectedGun() {
   saveToCookies();
 }
 
-// --- Gun & Attachment CRUD ---
 function addGun() {
   const name = document.getElementById('gunName').value.trim();
   const barrel = parseInt(document.getElementById('gunBarrel').value);
@@ -247,7 +256,6 @@ function attachToGun(type,index){
   gun[type]=attachment; renderSelectedGun();
 }
 
-// --- Export / Import ---
 function exportData(){ const data={guns,barrels,underBarrels,scopes}; const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='guns_attachments.json'; a.click(); URL.revokeObjectURL(url);}
 function importData(event){
   const file=event.target.files[0]; if(!file) return;
@@ -262,7 +270,6 @@ function importData(event){
   reader.readAsText(file);
 }
 
-// --- Initialize ---
 loadFromCookies();
 renderGuns(); renderAttachments(); renderSelectedGun();
 </script>
