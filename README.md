@@ -36,7 +36,7 @@ v0.1.2:
 v0.1.3:
 | Added Scrollable Menus
 
-v0.0.4:
+v0.1.4:
 | Fixed broken behaviour (guns that can use size 2 or 3 attachments could not have smaller sizes attached)
 | Text now clears from fields after entering a item
 | Attached items will be removed from the selected and saved guns if the attachment itself is deleted
