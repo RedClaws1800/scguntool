@@ -27,6 +27,7 @@ not sure yet
 **PATCHES**
 
 v0.1.1:
-Added Sizes listed in center when editing a guns config
-Added anti duplicate protection
+| Added Sizes listed in center when editing a guns config
+| Added anti duplicate protection
+
 ---
