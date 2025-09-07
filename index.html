@@ -171,38 +171,49 @@ function renderSelectedGun() {
     if (gun.image) { imgEl.src = gun.image; imgEl.style.display='block'; } else imgEl.style.display='none';
     nameEl.innerText = gun.name;
     attachEl.innerHTML = `
-      <p>Barrel: ${gun.barrel ? gun.barrel.name : 'None'} <button onclick="removeAttachment('barrel')">Remove</button></p>
-      <p>Under Barrel: ${gun.under ? gun.under.name : 'None'} <button onclick="removeAttachment('under')">Remove</button></p>
-      <p>Scope: ${gun.scope ? gun.scope.name : 'None'} <button onclick="removeAttachment('scope')">Remove</button></p>
+      <p>Barrel (Required Size ${gun.barrelSize}): ${gun.barrel ? gun.barrel.name : 'None'} <button onclick="removeAttachment('barrel')">Remove</button></p>
+      <p>Under Barrel (Required Size ${gun.underSize}): ${gun.under ? gun.under.name : 'None'} <button onclick="removeAttachment('under')">Remove</button></p>
+      <p>Scope (Required Size ${gun.scopeSize}): ${gun.scope ? gun.scope.name : 'None'} <button onclick="removeAttachment('scope')">Remove</button></p>
     `;
   }
   saveToCookies();
 }
 
 function addGun() {
-  const name = document.getElementById('gunName').value;
+  const name = document.getElementById('gunName').value.trim();
   const barrel = parseInt(document.getElementById('gunBarrel').value);
   const under = parseInt(document.getElementById('gunUnder').value);
   const scope = parseInt(document.getElementById('gunScope').value);
   const image = document.getElementById('gunImage').value;
-  if(!name||!barrel||!under||!scope) return alert("All fields except image required");
-  guns.push({ name, barrelSize:barrel, underSize:under, scopeSize:scope, barrel:null, under:null, scope:null, image });
+
+  if (!name || !barrel || !under || !scope) return alert("All fields except image required");
+
+  if (guns.some(g => g.name.toLowerCase() === name.toLowerCase())) {
+    return alert("A gun with that name already exists!");
+  }
+
+  guns.push({ name, barrelSize: barrel, underSize: under, scopeSize: scope, barrel: null, under: null, scope: null, image });
   renderGuns();
 }
 
-function selectGun(index) { selectedGunIndex=index; renderSelectedGun(); }
+function selectGun(index) { selectedGunIndex = index; renderSelectedGun(); }
 function deleteGun(index){ if(selectedGunIndex===index) selectedGunIndex=null; guns.splice(index,1); renderGuns(); renderSelectedGun(); }
 function removeSelectedGun(){ if(selectedGunIndex!==null){ guns.splice(selectedGunIndex,1); selectedGunIndex=null; renderGuns(); renderSelectedGun(); } }
-function addAttachment(type){
-  const name=document.getElementById(`${type}Name`).value;
-  const size=parseInt(document.getElementById(`${type}Size`).value);
-  if(!name||!size) return alert("All fields required");
-  const item={name,size};
-  if(type==='barrel') barrels.push(item);
-  if(type==='under') underBarrels.push(item);
-  if(type==='scope') scopes.push(item);
+
+function addAttachment(type) {
+  const name = document.getElementById(`${type}Name`).value.trim();
+  const size = parseInt(document.getElementById(`${type}Size`).value);
+  if (!name || !size) return alert("All fields required");
+
+  let arr = type === 'barrel' ? barrels : type === 'under' ? underBarrels : scopes;
+  if (arr.some(a => a.name.toLowerCase() === name.toLowerCase())) {
+    return alert(`An attachment of type ${type} with that name already exists!`);
+  }
+
+  arr.push({ name, size });
   renderAttachments();
 }
+
 function deleteAttachment(type,index){ if(type==='barrel') barrels.splice(index,1); if(type==='under') underBarrels.splice(index,1); if(type==='scope') scopes.splice(index,1); renderAttachments(); }
 function removeAttachment(type){ if(selectedGunIndex===null) return; guns[selectedGunIndex][type]=null; renderSelectedGun(); }
 function attachToGun(type,index){
