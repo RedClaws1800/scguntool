@@ -30,5 +30,8 @@ v0.1.1:
 | Added Sizes listed in center when editing a guns config
 | Added anti duplicate protection
 
+v0.1.2:
+| Added ability to move items around within thair respective menus
+
 ---
 test
