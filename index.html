@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Star Citizen Gun Customizer</title>
+<style>
+body {
+  font-family: Arial, sans-serif;
+  display: flex;
+  height: 100vh;
+  margin: 0;
+  background-color: #1c1c1c;
+  color: #f0f0f0;
+}
+.panel { padding: 20px; overflow-y: auto; }
+.guns-panel { width: 25%; background-color: #2c2c2c; border-right: 2px solid #444; }
+.attachments-panel { width: 25%; background-color: #2c2c2c; border-left: 2px solid #444; }
+.center-panel {
+  flex-grow: 1; text-align: center; padding: 40px;
+  display: flex; flex-direction: column; justify-content: flex-start; align-items: center;
+}
+h2 { margin-top: 0; }
+button, select, input {
+  margin: 5px 0; padding: 5px; border-radius: 4px; border: 1px solid #555;
+  background-color: #3c3c3c; color: #f0f0f0;
+}
+button:hover { background-color: #5c5c5c; cursor: pointer; }
+.gun-item, .attachment-item {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 5px; padding: 5px; border-bottom: 1px solid #444;
+}
+input[type="number"] { width: 50px; }
+img.gun-img { max-width: 250px; max-height: 250px; border-radius: 8px; margin-bottom: 10px; }
+.selected-gun-name { font-size: 24px; margin-bottom: 20px; }
+.attachments-list p { margin: 5px 0; }
+</style>
+</head>
+<body>
+
+<div class="panel guns-panel">
+  <h2>Guns</h2>
+  <div id="gunsList"></div>
+
+  <h3>Add Gun</h3>
+  <input type="text" id="gunName" placeholder="Gun Name"><br>
+  Barrel Size: <input type="number" id="gunBarrel" min="1" max="3"><br>
+  Under Barrel Size: <input type="number" id="gunUnder" min="1" max="3"><br>
+  Scope Size: <input type="number" id="gunScope" min="1" max="3"><br>
+  Image URL (optional): <input type="text" id="gunImage" placeholder="http://..."><br>
+  <button onclick="addGun()">Add Gun</button>
+
+  <h3>Export / Import</h3>
+  <button onclick="exportData()">Export JSON</button>
+  <input type="file" id="importFile" onchange="importData(event)">
+</div>
+
+<div class="center-panel">
+  <img id="selectedGunImage" src="" alt="" class="gun-img" style="display:none">
+  <div class="selected-gun-name" id="selectedGunName">Select a Gun</div>
+  <div class="attachments-list" id="selectedAttachments">
+    <p>Barrel: None</p>
+    <p>Under Barrel: None</p>
+    <p>Scope: None</p>
+  </div>
+  <button onclick="removeSelectedGun()">Remove Gun</button>
+</div>
+
+<div class="panel attachments-panel">
+  <h2>Attachments</h2>
+  
+  <h3>Barrels</h3>
+  <div id="barrelList"></div>
+  <input type="text" id="barrelName" placeholder="Barrel Name">
+  <input type="number" id="barrelSize" min="1" max="3">
+  <button onclick="addAttachment('barrel')">Add Barrel</button>
+  
+  <h3>Under Barrels</h3>
+  <div id="underList"></div>
+  <input type="text" id="underName" placeholder="Under Barrel Name">
+  <input type="number" id="underSize" min="1" max="3">
+  <button onclick="addAttachment('under')">Add Under Barrel</button>
+  
+  <h3>Scopes</h3>
+  <div id="scopeList"></div>
+  <input type="text" id="scopeName" placeholder="Scope Name">
+  <input type="number" id="scopeSize" min="1" max="3">
+  <button onclick="addAttachment('scope')">Add Scope</button>
+</div>
+
+<script>
+let guns = [], barrels = [], underBarrels = [], scopes = [];
+let selectedGunIndex = null;
+
+// Cookie helpers
+function saveToCookies() {
+  const data = { guns, barrels, underBarrels, scopes, selectedGunIndex };
+  document.cookie = "gunData=" + encodeURIComponent(JSON.stringify(data)) + ";path=/;max-age=31536000";
+}
+
+function loadFromCookies() {
+  const cookies = document.cookie.split('; ').reduce((acc, c) => {
+    const [k,v] = c.split('='); acc[k] = v; return acc;
+  }, {});
+  if(cookies.gunData) {
+    try {
+      const data = JSON.parse(decodeURIComponent(cookies.gunData));
+      guns = data.guns || [];
+      barrels = data.barrels || [];
+      underBarrels = data.underBarrels || [];
+      scopes = data.scopes || [];
+      selectedGunIndex = data.selectedGunIndex || null;
+    } catch(e) { console.warn("Failed to load cookies"); }
+  }
+}
+
+function renderGuns() {
+  const list = document.getElementById('gunsList');
+  list.innerHTML = '';
+  guns.forEach((gun, index) => {
+    const div = document.createElement('div');
+    div.className = 'gun-item';
+    div.innerHTML = `
+      <span style="display:flex; align-items:center; cursor:pointer;">
+        ${gun.image ? `<img class="gun-img" src="${gun.image}" alt="gun" style="width:30px;height:30px;margin-right:5px;">` : ''}
+        ${gun.name}
+      </span>
+      <div>
+        <button onclick="selectGun(${index})">Add</button>
+        <button onclick="deleteGun(${index})">Delete</button>
+      </div>
+    `;
+    list.appendChild(div);
+  });
+  saveToCookies();
+}
+
+function renderAttachments() {
+  function renderList(items, containerId, type) {
+    const list = document.getElementById(containerId);
+    list.innerHTML = '';
+    items.forEach((item, i) => {
+      const div = document.createElement('div');
+      div.className = 'attachment-item';
+      div.innerHTML = `
+        ${item.name} (Size ${item.size})
+        <div>
+          <button onclick="attachToGun('${type}', ${i})">Add</button>
+          <button onclick="deleteAttachment('${type}', ${i})">Delete</button>
+        </div>
+      `;
+      list.appendChild(div);
+    });
+  }
+  renderList(barrels, 'barrelList', 'barrel');
+  renderList(underBarrels, 'underList', 'under');
+  renderList(scopes, 'scopeList', 'scope');
+  saveToCookies();
+}
+
+function renderSelectedGun() {
+  const nameEl = document.getElementById('selectedGunName');
+  const imgEl = document.getElementById('selectedGunImage');
+  const attachEl = document.getElementById('selectedAttachments');
+  if (selectedGunIndex === null) {
+    imgEl.style.display = 'none';
+    nameEl.innerText = 'Select a Gun';
+    attachEl.innerHTML = `<p>Barrel: None</p><p>Under Barrel: None</p><p>Scope: None</p>`;
+  } else {
+    const gun = guns[selectedGunIndex];
+    if (gun.image) { imgEl.src = gun.image; imgEl.style.display='block'; } else imgEl.style.display='none';
+    nameEl.innerText = gun.name;
+    attachEl.innerHTML = `
+      <p>Barrel: ${gun.barrel ? gun.barrel.name : 'None'} <button onclick="removeAttachment('barrel')">Remove</button></p>
+      <p>Under Barrel: ${gun.under ? gun.under.name : 'None'} <button onclick="removeAttachment('under')">Remove</button></p>
+      <p>Scope: ${gun.scope ? gun.scope.name : 'None'} <button onclick="removeAttachment('scope')">Remove</button></p>
+    `;
+  }
+  saveToCookies();
+}
+
+function addGun() {
+  const name = document.getElementById('gunName').value;
+  const barrel = parseInt(document.getElementById('gunBarrel').value);
+  const under = parseInt(document.getElementById('gunUnder').value);
+  const scope = parseInt(document.getElementById('gunScope').value);
+  const image = document.getElementById('gunImage').value;
+  if(!name||!barrel||!under||!scope) return alert("All fields except image required");
+  guns.push({ name, barrelSize:barrel, underSize:under, scopeSize:scope, barrel:null, under:null, scope:null, image });
+  renderGuns();
+}
+
+function selectGun(index) { selectedGunIndex=index; renderSelectedGun(); }
+function deleteGun(index){ if(selectedGunIndex===index) selectedGunIndex=null; guns.splice(index,1); renderGuns(); renderSelectedGun(); }
+function removeSelectedGun(){ if(selectedGunIndex!==null){ guns.splice(selectedGunIndex,1); selectedGunIndex=null; renderGuns(); renderSelectedGun(); } }
+function addAttachment(type){
+  const name=document.getElementById(`${type}Name`).value;
+  const size=parseInt(document.getElementById(`${type}Size`).value);
+  if(!name||!size) return alert("All fields required");
+  const item={name,size};
+  if(type==='barrel') barrels.push(item);
+  if(type==='under') underBarrels.push(item);
+  if(type==='scope') scopes.push(item);
+  renderAttachments();
+}
+function deleteAttachment(type,index){ if(type==='barrel') barrels.splice(index,1); if(type==='under') underBarrels.splice(index,1); if(type==='scope') scopes.splice(index,1); renderAttachments(); }
+function removeAttachment(type){ if(selectedGunIndex===null) return; guns[selectedGunIndex][type]=null; renderSelectedGun(); }
+function attachToGun(type,index){
+  if(selectedGunIndex===null) return alert("Select a gun first");
+  const gun=guns[selectedGunIndex];
+  let attachment = type==='barrel'?barrels[index]:type==='under'?underBarrels[index]:scopes[index];
+  const requiredSize = type==='barrel'?gun.barrelSize:type==='under'?gun.underSize:gun.scopeSize;
+  if(attachment.size!==requiredSize) return alert(`Size mismatch! Gun requires size ${requiredSize}.`);
+  gun[type]=attachment; renderSelectedGun();
+}
+
+// Export / Import
+function exportData(){ const data={guns,barrels,underBarrels,scopes}; const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='guns_attachments.json'; a.click(); URL.revokeObjectURL(url);}
+function importData(event){
+  const file=event.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const data=JSON.parse(e.target.result);
+      guns=data.guns||[]; barrels=data.barrels||[]; underBarrels=data.underBarrels||[]; scopes=data.scopes||[];
+      selectedGunIndex=null; renderGuns(); renderAttachments(); renderSelectedGun();
+    }catch(e){ alert("Invalid JSON file"); }
+  };
+  reader.readAsText(file);
+}
+
+// Load from cookies initially
+loadFromCookies();
+renderGuns(); renderAttachments(); renderSelectedGun();
+</script>
+</body>
+</html>
